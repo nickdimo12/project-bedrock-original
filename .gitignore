@@ -1,0 +1,16 @@
+# Terraform
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform/
+terraform.tfstate.lock.info
+
+# Secrets
+*.key
+*.pem
+*.secret
+iam-policy.json
+
+# Misc
+.DS_Store
+.env
