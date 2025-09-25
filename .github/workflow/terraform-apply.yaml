@@ -1,0 +1,43 @@
+name: Terraform Apply
+on:
+  workflow_dispatch:
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan
+          path: infra/
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=my-innovatemart-terraform-state" \
+            -backend-config="key=eks/terraform.tfstate" \
+            -backend-config="region=eu-west-1" \
+            -backend-config="dynamodb_table=terraform-lock" || exit 1
+        working-directory: infra
+
+      - name: Terraform Apply
+        run: terraform apply -lock=true -auto-approve tfplan || exit 1
+        working-directory: infra

@@ -1,0 +1,51 @@
+name: Deploy to EKS
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Terraform Apply"]
+    types:
+      - completed
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify k8s directory
+        run: |
+          ls -la k8s/
+          for file in deployment.yaml service.yaml namespace-retail.yaml mysql-deployment.yaml mysql-service.yaml mysql-secret.yaml ui-ingress.yaml aws-lb-controller.yaml; do
+            if [ ! -f k8s/$file ]; then
+              echo "Error: k8s/$file does not exist"
+              exit 1
+            fi
+          done
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --region eu-west-1 --name bedrock-eks
+        env:
+          AWS_DEFAULT_REGION: eu-west-1
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f k8s/namespace-retail.yaml
+          kubectl apply -f k8s/mysql-secret.yaml
+          kubectl apply -f k8s/mysql-deployment.yaml
+          kubectl apply -f k8s/mysql-service.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/ui-ingress.yaml
+          kubectl apply -f k8s/aws-lb-controller.yaml
+        env:
+          KUBECONFIG: ~/.kube/config
